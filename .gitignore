@@ -1,0 +1,7 @@
+__pycache__
+.venv
+checkpoints
+*.log
+*.csv
+*.ipynb
+user_studies
