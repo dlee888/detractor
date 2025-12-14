@@ -1,4 +1,6 @@
-# Tractor Environment
+![logo](https://github.com/dlee888/detractor/blob/main/assets/detractor.svg)
+
+# DeTractor
 
 This codebase provides an environment for the card game of Tractor, along with code for RL experiments learning to play.
 

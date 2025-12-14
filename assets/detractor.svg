@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 240">
+
+  <!-- Color definitions -->
+  <defs>
+    <linearGradient id="blueGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B6FAF"/>
+      <stop offset="1" stop-color="#083E63"/>
+    </linearGradient>
+    <linearGradient id="orangeGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FF9F1C"/>
+      <stop offset="1" stop-color="#FF6A00"/>
+    </linearGradient>
+  <linearGradient id="tractorFade" x1="30%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="white" stop-opacity="1"/>
+    <stop offset="100%" stop-color="white" stop-opacity="0"/>
+  </linearGradient>
+  <mask id="tractorMask">
+    <rect x="0" y="0" width="300" height="200" fill="url(#tractorFade)" />
+  </mask>
+  </defs>
+
+  <g transform="translate(40,40) scale(1.0)" mask="url(#tractorMask)">
+    <!-- wheels -->
+    <circle cx="60" cy="110" r="38" fill="#222"/>
+    <circle cx="60" cy="110" r="26" fill="#0B6FAF"/>
+
+    <circle cx="150" cy="120" r="22" fill="#222"/>
+    <circle cx="150" cy="120" r="15" fill="#0B6FAF"/>
+
+    <!-- body -->
+    <rect x="35" y="40" width="130" height="50" rx="10" fill="url(#blueGrad)"/>
+    <!-- cabin -->
+    <rect x="115" y="10" width="65" height="50" rx="8" fill="url(#orangeGrad)" transform="skewX(-8)"/>
+    <!-- hood -->
+    <path d="M25 65 L35 50 L105 50 L120 65 L95 75 Z" fill="#0B6FAF"/>
+  </g>
+
+  <!-- Neural network: 3 layers, 4–5 nodes each -->
+  <g transform="translate(215,30)">
+    <!-- Layer 1 nodes -->
+    <g id="layer1">
+      <circle cx="0" cy="20"  r="10" fill="#0B6FAF"/>
+      <circle cx="0" cy="60"  r="10" fill="#0B6FAF"/>
+      <circle cx="0" cy="100" r="10" fill="#0B6FAF"/>
+      <circle cx="0" cy="140" r="10" fill="#0B6FAF"/>
+    </g>
+
+    <!-- Layer 2 nodes -->
+    <g id="layer2" transform="translate(40,0)">
+      <circle cx="0" cy="20"  r="10" fill="#0B6FAF"/>
+      <circle cx="0" cy="60"  r="10" fill="#0B6FAF"/>
+      <circle cx="0" cy="100" r="10" fill="#0B6FAF"/>
+      <circle cx="0" cy="140" r="10" fill="#0B6FAF"/>
+    </g>
+
+    <!-- Layer 3 nodes -->
+    <g id="layer3" transform="translate(80,0)">
+      <circle cx="0" cy="40"  r="10" fill="#FF9F1C"/>
+      <circle cx="0" cy="120" r="10" fill="#FF9F1C"/>
+    </g>
+
+    <!-- Connections (layer1 → layer2) -->
+    <g stroke="#0B6FAF" stroke-width="2" opacity="0.8">
+      <line x1="0" y1="20"  x2="40" y2="20"/>
+      <line x1="0" y1="20"  x2="40" y2="60"/>
+      <line x1="0" y1="20"  x2="40" y2="100"/>
+      <line x1="0" y1="20"  x2="40" y2="140"/>
+      <line x1="0" y1="60"  x2="40" y2="20"/>
+      <line x1="0" y1="60"  x2="40" y2="60"/>
+      <line x1="0" y1="60"  x2="40" y2="100"/>
+      <line x1="0" y1="60"  x2="40" y2="140"/>
+      <line x1="0" y1="100"  x2="40" y2="20"/>
+      <line x1="0" y1="100"  x2="40" y2="60"/>
+      <line x1="0" y1="100"  x2="40" y2="100"/>
+      <line x1="0" y1="100"  x2="40" y2="140"/>
+      <line x1="0" y1="140"  x2="40" y2="20"/>
+      <line x1="0" y1="140"  x2="40" y2="60"/>
+      <line x1="0" y1="140"  x2="40" y2="100"/>
+      <line x1="0" y1="140"  x2="40" y2="140"/>
+    </g>
+
+    <!-- Connections (layer2 → layer3) -->
+    <g stroke="#0B6FAF" stroke-width="2" opacity="0.8">
+      <line x1="40" y1="20"  x2="80" y2="40"/>
+      <line x1="40" y1="60"  x2="80" y2="40"/>
+      <line x1="40" y1="100" x2="80" y2="40"/>
+      <line x1="40" y1="140" x2="80" y2="40"/>
+      <line x1="40" y1="20"  x2="80" y2="120"/>
+      <line x1="40" y1="60"  x2="80" y2="120"/>
+      <line x1="40" y1="100" x2="80" y2="120"/>
+      <line x1="40" y1="140" x2="80" y2="120"/>
+    </g>
+  </g>
+
+  <!-- Text -->
+  <g transform="translate(310,140)">
+    <text font-family="Segoe UI, Roboto, Helvetica, Arial"
+          font-size="60" font-weight="700" fill="url(#blueGrad)">
+      DeTractor
+    </text>
+  </g>
+
+</svg>
