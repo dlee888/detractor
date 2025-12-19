@@ -33,6 +33,22 @@ def run_inference(module, agent_obs) -> int:
     action = action_dist.sample().item()
     return action
 
+
+def get_value(module, agent_obs) -> int:
+    device = torch.device("cuda")
+    module.to(device)
+    obs_batch = {
+        "obs": torch.tensor(
+            np.expand_dims(agent_obs["observations"], axis=0),
+            dtype=torch.float32,
+            device=device,
+        ),
+    }
+
+    # Forward pass through the module
+    return module.compute_values(obs_batch)
+
+
 def get_random_action(env: TractorEnv):
     possible_actions: list[list[int]] = []
 

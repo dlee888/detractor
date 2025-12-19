@@ -9,7 +9,7 @@ from ray.rllib.examples.rl_modules.classes.action_masking_rlm import (
 )
 
 from rl.env import TractorEnv
-from rl.util import run_inference
+from rl.util import run_inference, get_value
 from rl.train import make_policy_mapping_fn
 from rl.modules import ActionMaskingTorchRandomModule
 
@@ -53,7 +53,7 @@ def evaluate_agents(checkpoint_path: str, num_episodes: int = 1):
                     "shared_policy": RLModuleSpec(
                         module_class=ActionMaskingTorchRLModule,
                         model_config={
-                            "fcnet_hiddens": [512, 256],
+                            "fcnet_hiddens": [1024, 1024],
                             "fcnet_activation": "relu",
                         },
                     ),
@@ -97,6 +97,7 @@ def evaluate_agents(checkpoint_path: str, num_episodes: int = 1):
             for agent_id, agent_obs in obs.items():
                 if not terminated[agent_id]:
                     action = run_inference(module, agent_obs)
+                    print(f"Value function: {get_value(module, agent_obs)}")
                     actions[agent_id] = action
             print(f"Actions: {actions}")
 

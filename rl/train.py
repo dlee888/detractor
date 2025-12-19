@@ -3,6 +3,7 @@ import time
 from pprint import pprint
 from pathlib import Path
 
+from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.algorithms.ppo import PPOConfig, PPO
 from ray.rllib.core.rl_module.multi_rl_module import MultiRLModuleSpec
 from ray.rllib.core.rl_module.rl_module import RLModuleSpec
@@ -22,16 +23,16 @@ def checkpoint_module_spec(path: str, observation_space, action_space) -> RLModu
         observation_space=observation_space,
         action_space=action_space,
         model_config={
-            "fcnet_hiddens": [512, 256],
+            "fcnet_hiddens": [1024, 1024, 1024],
             "fcnet_activation": "relu",
         },
         load_state_path=str(ckpt / "learner_group" / "rl_module_state.pkl"),
     )
 
 
-RANDOM_OPP_RATE = 0.2
-PAST_OPP_RATE = 0.8
-TEAMMATE_SELF_PROB = 0.7
+RANDOM_OPP_RATE = 0.5
+PAST_OPP_RATE = 0.5
+TEAMMATE_SELF_PROB = 0.8
 
 
 def make_policy_mapping_fn(opponent_pool: list[str] | None = None):
@@ -42,7 +43,11 @@ def make_policy_mapping_fn(opponent_pool: list[str] | None = None):
             episode_data[id(episode)] = {}
         data = episode_data[id(episode)]
         if agent_id % 2 == 0:
-            if agent_id == 2 and opponent_pool and random.random() >= TEAMMATE_SELF_PROB:
+            if (
+                agent_id == 2
+                and opponent_pool
+                and random.random() >= TEAMMATE_SELF_PROB
+            ):
                 data[f"chosen_opponent{agent_id}"] = random.choice(opponent_pool)
             else:
                 data[f"chosen_opponent{agent_id}"] = "shared_policy"
@@ -51,19 +56,42 @@ def make_policy_mapping_fn(opponent_pool: list[str] | None = None):
             roll = random.random()
             if roll < RANDOM_OPP_RATE:
                 data[f"chosen_opponent{agent_id}"] = "random"
+                data[f"chosen_opponent{(agent_id + 2) % 4}"] = "random"
             elif opponent_pool is not None and roll < RANDOM_OPP_RATE + PAST_OPP_RATE:
                 data[f"chosen_opponent{agent_id}"] = random.choice(opponent_pool)
+                data[f"chosen_opponent{(agent_id + 2) % 4}"] = random.choice(
+                    opponent_pool
+                )
             else:
                 data[f"chosen_opponent{agent_id}"] = "shared_policy"
+                if not opponent_pool or random.random() < TEAMMATE_SELF_PROB:
+                    data[f"chosen_opponent{(agent_id + 2) % 4}"] = "shared_policy"
+                else:
+                    data[f"chosen_opponent{(agent_id + 2) % 4}"] = random.choice(
+                        opponent_pool
+                    )
         return data[f"chosen_opponent{agent_id}"]
 
     return _map
+
+
+class SelfPlayWinRateCallback(DefaultCallbacks):
+    def on_episode_end(self, *, episode, metrics_logger, **kwargs):
+        main_reward = sum(episode.agent_episodes[0].rewards)
+
+        metrics_logger.log_value(
+            f"main_vs_{episode.agent_episodes[1].module_id}", main_reward, reduce="mean"
+        )
+        metrics_logger.log_value(
+            f"main_vs_{episode.agent_episodes[1].module_id[:4]}", main_reward, reduce="mean"
+        )
 
 
 def main(params, name: str, checkpoint_path: str = "") -> None:
     config = (
         PPOConfig()
         .environment(env=TractorEnv, disable_env_checking=True)
+        .callbacks(SelfPlayWinRateCallback)
         .multi_agent(
             policies={"shared_policy", "random"},
             policy_mapping_fn=make_policy_mapping_fn(),
@@ -72,18 +100,16 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
         )
         .training(
             lr=2e-5,
-            gamma=0.99,
-            lambda_=0.95,
+            gamma=0.997,
+            lambda_=0.99,
             clip_param=0.1,
             vf_clip_param=10.0,
             entropy_coeff=0.001,
-            train_batch_size=20000,
+            train_batch_size=40000,
             minibatch_size=128,
             num_epochs=2,
         )
         .env_runners(
-            create_local_env_runner=False,
-            create_env_on_local_worker=False,
             num_env_runners=8,
             num_envs_per_env_runner=8,
             num_gpus_per_env_runner=0.125,
@@ -95,7 +121,7 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
                     "shared_policy": RLModuleSpec(
                         module_class=ActionMaskingTorchRLModule,
                         model_config={
-                            "fcnet_hiddens": [1024, 1024],
+                            "fcnet_hiddens": [1024, 1024, 1024],
                             "fcnet_activation": "relu",
                         },
                     ),
@@ -116,7 +142,7 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
 
     # Open a log file once for the whole run
     opponent_pool = []
-    MAX_POOL = 20
+    MAX_POOL = 25
     try:
         log_file_path = f"episode_rewards_{name}.csv"
         with open(log_file_path, "w") as f:
@@ -133,9 +159,7 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
                 stats = result.get("env_runners", {})
                 # pprint(stats)
                 episode_returns_mean = stats.get("agent_episode_returns_mean", {})
-                episode_return_mean = episode_returns_mean.get(
-                    "0", "N"
-                ) + episode_returns_mean.get("2", "/A")
+                episode_return_mean = episode_returns_mean.get("0", "N")
                 print(f"Episode Reward Mean: {episode_return_mean}")
                 print(f"Episode Length Mean: {stats.get('episode_len_mean', 'N/A')}")
                 print(f"Episodes This Iter: {stats.get('num_episodes', 'N/A')}")
@@ -148,7 +172,7 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
                 else:
                     print(f"Failed to log reward: {type(episode_return_mean)}")
 
-                if (i + 1) % 20 == 0:
+                if (i + 1) % 50 == 0:
                     checkpoint = algo.save()
                     print(f"\nCheckpoint saved at: {checkpoint.checkpoint}")
                     new_policy = f"self_t{i}"
@@ -159,8 +183,9 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
                         env.get_action_space(0),
                     )
                     opponent_pool.append(new_policy)
-                    if len(opponent_pool) > MAX_POOL:
-                        opponent_pool = opponent_pool[-MAX_POOL:]
+                    while len(opponent_pool) > MAX_POOL:
+                        old_module = opponent_pool.pop(0)
+                        algo.remove_module(module_id=old_module)
                     algo.add_module(
                         module_id=new_policy,
                         module_spec=checkpoint_spec,
@@ -181,4 +206,8 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
 
 
 if __name__ == "__main__":
-    main({"iter": 10000}, "OP_1024_1024")
+    main(
+        {"iter": 3000},
+        "fixOP_1024_1024_1024",
+        # "/home/dlee888/projects/human_tractor/finding-friends/checkpoints/scaled_1024_1024_1024",
+    )

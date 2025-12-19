@@ -52,7 +52,7 @@ def evaluate_agents(checkpoint_path: str, num_episodes: int = 25):
                     "shared_policy": RLModuleSpec(
                         module_class=ActionMaskingTorchRLModule,
                         model_config={
-                            "fcnet_hiddens": [512, 256],
+                            "fcnet_hiddens": [1024, 1024, 1024],
                             "fcnet_activation": "relu",
                         },
                     ),
@@ -120,7 +120,8 @@ def evaluate_agents(checkpoint_path: str, num_episodes: int = 25):
                 print("WARNING: Episode exceeded 1000 steps force termination")
                 break
 
-        episode_rewards.append(rewards_sum[0] + rewards_sum[2])
+        assert rewards_sum[0] == rewards_sum[2]
+        episode_rewards.append(rewards_sum[0])
         if env.game.host % 2 == 0:
             wins += env.game.attacker_points < 80
             wins_def += env.game.attacker_points < 80

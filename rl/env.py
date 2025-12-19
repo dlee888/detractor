@@ -22,6 +22,8 @@ OBS_SIZE = (
     + NUM_CARDS * NUM_PLAYERS
 )
 
+REWARD_SCALE = 20.0
+
 
 class TractorEnv(MultiAgentEnv):
     possible_agents: list[AgentID]
@@ -287,10 +289,10 @@ class TractorEnv(MultiAgentEnv):
                 result = self.game.play_action(action)
                 if result is not None:
                     score, winner = result
-                    rewards[winner] += score / 10.0
-                    rewards[(winner + 2) % NUM_PLAYERS] += score / 10.0
-                    rewards[(winner + 1) % NUM_PLAYERS] -= score / 10.0
-                    rewards[(winner + 3) % NUM_PLAYERS] -= score / 10.0
+                    rewards[winner] += score / REWARD_SCALE
+                    rewards[(winner + 2) % NUM_PLAYERS] += score / REWARD_SCALE
+                    rewards[(winner + 1) % NUM_PLAYERS] -= score / REWARD_SCALE
+                    rewards[(winner + 3) % NUM_PLAYERS] -= score / REWARD_SCALE
                 self.partial_selection = []
             else:
                 self.partial_selection.append(Card.from_index(action))
