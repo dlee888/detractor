@@ -7,13 +7,10 @@ from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.algorithms.ppo import PPOConfig, PPO
 from ray.rllib.core.rl_module.multi_rl_module import MultiRLModuleSpec
 from ray.rllib.core.rl_module.rl_module import RLModuleSpec
-from ray.rllib.examples.rl_modules.classes.action_masking_rlm import (
-    ActionMaskingTorchRLModule,
-)
 from ray.rllib.utils.framework import get_device
 
 from rl.env import TractorEnv
-from rl.modules import ActionMaskingTorchRandomModule
+from rl.modules import ActionMaskingTorchRandomModule, ActionMaskingTorchRLModule
 
 
 def checkpoint_module_spec(path: str, observation_space, action_space) -> RLModuleSpec:
