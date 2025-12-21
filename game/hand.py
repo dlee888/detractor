@@ -67,7 +67,7 @@ class Hand(BaseModel):
     def play_action(self, action: Action, player: Player, trump_suit: Suit) -> None:
         if self.actions[self.next_player] is not None:
             raise Exception("Cannot play action: player has already played")
-        self.verify_next_action(action, player, trump_suit)
+        # self.verify_next_action(action, player, trump_suit)
         self.actions[self.next_player] = action
         self.next_player = (self.next_player + 1) % self.num_players
 

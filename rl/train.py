@@ -1,3 +1,4 @@
+import os
 import random
 import time
 from pprint import pprint
@@ -85,6 +86,7 @@ class SelfPlayWinRateCallback(DefaultCallbacks):
 
 
 def main(params, name: str, checkpoint_path: str = "") -> None:
+    run_start = time.time()
     config = (
         PPOConfig()
         .environment(env=TractorEnv, disable_env_checking=True)
@@ -107,10 +109,12 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
             num_epochs=2,
         )
         .env_runners(
-            num_env_runners=8,
-            num_envs_per_env_runner=8,
-            num_gpus_per_env_runner=0.125,
-            rollout_fragment_length=64,
+            create_local_env_runner=False,
+            num_env_runners=4,
+            num_envs_per_env_runner=32,
+            num_gpus_per_env_runner=0.25,
+            num_cpus_per_env_runner=32,
+            rollout_fragment_length="auto",
         )
         .rl_module(
             rl_module_spec=MultiRLModuleSpec(
@@ -133,6 +137,8 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
     algo = config.build()
     if checkpoint_path:
         algo.restore(checkpoint_path)
+    elif os.path.exists(f"/home/dlee888/detractor/checkpoints/{name}"):
+        algo.restore(f"/home/dlee888/detractor/checkpoints/{name}")
 
     print("Starting training...")
     num_iterations = params["iter"]
@@ -143,7 +149,7 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
     try:
         log_file_path = f"episode_rewards_{name}.csv"
         with open(log_file_path, "w") as f:
-            f.write("iteration,episode_return_mean\n")
+            f.write("iteration,episode_return_mean,timestamp\n")
 
             for i in range(num_iterations):
                 starttime = time.time()
@@ -164,13 +170,13 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
 
                 # Log to file (only if it's a real number)
                 if isinstance(episode_return_mean, (int, float)):
-                    f.write(f"{i+1},{episode_return_mean}\n")
+                    f.write(f"{i+1},{episode_return_mean},{time.time()}\n")
                     f.flush()
                 else:
                     print(f"Failed to log reward: {type(episode_return_mean)}")
 
                 if (i + 1) % 50 == 0:
-                    checkpoint = algo.save()
+                    checkpoint = algo.save(f"/home/dlee888/detractor/checkpoints/{name}")
                     print(f"\nCheckpoint saved at: {checkpoint.checkpoint}")
                     new_policy = f"self_t{i}"
                     env = TractorEnv()
@@ -194,7 +200,7 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
         pass
     finally:
         final_checkpoint = algo.save(
-            f"/home/dlee888/projects/human_tractor/finding-friends/checkpoints/{name}"
+            f"/home/dlee888/detractor/checkpoints/{name}"
         )
         print(f"\nFinal checkpoint saved at: {final_checkpoint.checkpoint}")
         pprint(f"{final_checkpoint.metrics}")
@@ -206,5 +212,5 @@ if __name__ == "__main__":
     main(
         {"iter": 3000},
         "fixOP_1024_1024_1024",
-        # "/home/dlee888/projects/human_tractor/finding-friends/checkpoints/scaled_1024_1024_1024",
+        # "/home/dlee888/detractor/checkpoints/fixOP_1024_1024_1024",
     )

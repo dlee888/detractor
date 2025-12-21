@@ -5,3 +5,5 @@ checkpoints
 *.csv
 *.ipynb
 user_studies
+*.txt
+.ipynb_checkpoints/
