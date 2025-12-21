@@ -265,6 +265,16 @@ class TractorEnv(MultiAgentEnv):
         self.agents = self.possible_agents
         self.game = TractorGame()
         self.partial_selection = []
+        self.hands_encodings = []
+        self.hand_history_encodings = []
+        self.trump_encoding = np.zeros((NUM_SUITS,))
+        self.trump_encoding[self.game.trump_suit.value] = 1.0
+        for i in range(NUM_PLAYERS):
+            self.hands_encodings.append(np.zeros((NUM_CARDS,)))
+            for card in self.game.players[i].hand:
+                self.hands_encodings[i][card.get_index()] += 1.0
+            self.hand_history_encodings.append(np.zeros((NUM_CARDS,)))
+        self.partial_selection_encoding = np.zeros((NUM_CARDS,))
         return self.get_observation(), {}
 
     @override
