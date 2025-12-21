@@ -5,6 +5,7 @@
 #SBATCH --error=err_%j.txt
 #
 #SBATCH --partition=mit_preemptable
+#SBATCH --requeue
 #SBATCH -N 1
 #SBATCH --gpus-per-node=4
 #SBATCH --cpus-per-gpu=16

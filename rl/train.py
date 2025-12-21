@@ -28,8 +28,8 @@ def checkpoint_module_spec(path: str, observation_space, action_space) -> RLModu
     )
 
 
-RANDOM_OPP_RATE = 0.5
-PAST_OPP_RATE = 0.5
+random_opp_rate = 0.5
+past_opp_rate = 0.5
 TEAMMATE_SELF_PROB = 0.8
 
 
@@ -52,10 +52,10 @@ def make_policy_mapping_fn(opponent_pool: list[str] | None = None):
             return data[f"chosen_opponent{agent_id}"]
         if f"chosen_opponent{agent_id}" not in data:
             roll = random.random()
-            if roll < RANDOM_OPP_RATE:
+            if roll < random_opp_rate:
                 data[f"chosen_opponent{agent_id}"] = "random"
                 data[f"chosen_opponent{(agent_id + 2) % 4}"] = "random"
-            elif opponent_pool is not None and roll < RANDOM_OPP_RATE + PAST_OPP_RATE:
+            elif opponent_pool is not None and roll < random_opp_rate + past_opp_rate:
                 data[f"chosen_opponent{agent_id}"] = random.choice(opponent_pool)
                 data[f"chosen_opponent{(agent_id + 2) % 4}"] = random.choice(
                     opponent_pool
@@ -86,6 +86,8 @@ class SelfPlayWinRateCallback(DefaultCallbacks):
 
 
 def main(params, name: str, checkpoint_path: str = "") -> None:
+    global random_opp_rate, past_opp_rate
+
     run_start = time.time()
     config = (
         PPOConfig()
@@ -110,9 +112,10 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
         )
         .env_runners(
             create_local_env_runner=False,
+            create_env_on_local_worker=False,
             num_env_runners=4,
             num_envs_per_env_runner=32,
-            num_gpus_per_env_runner=0.25,
+            num_gpus_per_env_runner=1,
             num_cpus_per_env_runner=32,
             rollout_fragment_length="auto",
         )
@@ -178,6 +181,9 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
                 if (i + 1) % 50 == 0:
                     checkpoint = algo.save(f"/home/dlee888/detractor/checkpoints/{name}")
                     print(f"\nCheckpoint saved at: {checkpoint.checkpoint}")
+                    random_opp_rate *= 0.95
+                    past_opp_rate = 1 - random_opp_rate
+                    print(f"New random opp rate: {random_opp_rate}")
                     new_policy = f"self_t{i}"
                     env = TractorEnv()
                     checkpoint_spec = checkpoint_module_spec(
@@ -210,7 +216,7 @@ def main(params, name: str, checkpoint_path: str = "") -> None:
 
 if __name__ == "__main__":
     main(
-        {"iter": 3000},
+        {"iter": 10000},
         "fixOP_1024_1024_1024",
         # "/home/dlee888/detractor/checkpoints/fixOP_1024_1024_1024",
     )
