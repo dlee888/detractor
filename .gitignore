@@ -7,3 +7,5 @@ checkpoints
 user_studies
 *.txt
 .ipynb_checkpoints/
+configs/*
+!configs/example.json

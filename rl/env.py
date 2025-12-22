@@ -7,11 +7,10 @@ from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.rllib.utils.typing import AgentID
 
 from game.action import Action, ActionType
-from game.card import Card, NUM_CARDS, NUM_SUITS
-from game.game import TractorGame, NUM_PLAYERS
+from game.card import NUM_CARDS, NUM_SUITS, Card
+from game.game import NUM_PLAYERS, TractorGame
 from game.player import Player
-from game.util import get_effective_rank, get_tractors, get_pairs
-
+from game.util import get_effective_rank, get_pairs, get_tractors
 
 OBS_SIZE = (
     NUM_CARDS

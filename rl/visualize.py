@@ -1,72 +1,22 @@
 import argparse
+import json
+
 import numpy as np
 
-from ray.rllib.algorithms.ppo import PPO, PPOConfig
-from ray.rllib.core.rl_module.multi_rl_module import MultiRLModuleSpec
-from ray.rllib.core.rl_module.rl_module import RLModuleSpec
-from ray.rllib.examples.rl_modules.classes.action_masking_rlm import (
-    ActionMaskingTorchRLModule,
-)
-
 from rl.env import TractorEnv
-from rl.util import run_inference, get_value
-from rl.train import make_policy_mapping_fn
-from rl.modules import ActionMaskingTorchRandomModule
+from rl.util import build_algo, get_value, run_inference
 
 
-def evaluate_agents(checkpoint_path: str, num_episodes: int = 1):
+def evaluate_agents(config_name: str, num_episodes: int = 1):
     """
     Evaluate trained agents using the NEW RLModule API (RLlib 2.10+).
     """
 
-    print(f"Restoring PPO checkpoint: {checkpoint_path}")
+    with open(f"configs/{config_name}.json") as f:
+        config = json.load(f)
 
-    config = (
-        PPOConfig()
-        .environment(env=TractorEnv, disable_env_checking=True)
-        .multi_agent(
-            policies={"shared_policy", "random"},
-            policy_mapping_fn=make_policy_mapping_fn(),
-            policy_states_are_swappable=True,
-            policies_to_train=["shared_policy"],
-        )
-        .training(
-            lr=2e-5,
-            gamma=0.99,
-            lambda_=0.95,
-            clip_param=0.1,
-            vf_clip_param=10.0,
-            entropy_coeff=0.001,
-            train_batch_size=20000,
-            minibatch_size=128,
-            num_epochs=3,
-        )
-        .env_runners(
-            num_env_runners=0,
-            num_envs_per_env_runner=32,
-            num_gpus_per_env_runner=0.125,
-            rollout_fragment_length=64,
-        )
-        .rl_module(
-            rl_module_spec=MultiRLModuleSpec(
-                rl_module_specs={
-                    "shared_policy": RLModuleSpec(
-                        module_class=ActionMaskingTorchRLModule,
-                        model_config={
-                            "fcnet_hiddens": [1024, 1024],
-                            "fcnet_activation": "relu",
-                        },
-                    ),
-                    "random": RLModuleSpec(
-                        module_class=ActionMaskingTorchRandomModule,
-                    ),
-                }
-            )
-        )
-    )
-
-    algo = config.build()
-    algo.restore(checkpoint_path)
+    config["training"]["restore"] = True
+    algo = build_algo(config_name, config)
 
     policy_id = "shared_policy"
     module = algo.get_module(policy_id)
@@ -91,9 +41,6 @@ def evaluate_agents(checkpoint_path: str, num_episodes: int = 1):
             actions = {}
             print(f"\nStep {step}")
 
-            # -------------------------------------------------
-            # Compute actions for each agent
-            # -------------------------------------------------
             for agent_id, agent_obs in obs.items():
                 if not terminated[agent_id]:
                     action = run_inference(module, agent_obs)
@@ -101,11 +48,9 @@ def evaluate_agents(checkpoint_path: str, num_episodes: int = 1):
                     actions[agent_id] = action
             print(f"Actions: {actions}")
 
-            # Step the environment
             obs, rewards, terms, truncs, infos = env.step(actions)
             print(f"Rewards: {rewards}")
 
-            # Update rewards and terminated flags
             for agent_id, r in rewards.items():
                 rewards_sum[agent_id] += r
             for agent_id in env.possible_agents:
@@ -113,7 +58,6 @@ def evaluate_agents(checkpoint_path: str, num_episodes: int = 1):
                     agent_id, False
                 )
 
-            # Render the environment
             env.render()
             step += 1
             if step > 1000:
@@ -123,9 +67,6 @@ def evaluate_agents(checkpoint_path: str, num_episodes: int = 1):
         episode_rewards.append(rewards_sum)
         print(f"\nEpisode {ep + 1} Rewards: {rewards_sum}")
 
-    # -------------------------------------------------
-    # 5. Print evaluation summary
-    # -------------------------------------------------
     print("\n" + "=" * 60)
     print("Evaluation Summary")
     print("=" * 60)
@@ -135,12 +76,12 @@ def evaluate_agents(checkpoint_path: str, num_episodes: int = 1):
         )
         print(f"{agent_id}: Avg Reward = {avg_reward:.2f}")
 
-    # Cleanup
     algo.stop()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--path", type=str)
+    parser.add_argument("--name", type=str, required=True)
+    parser.add_argument("--n", type=int, default=1)
     args = parser.parse_args()
-    evaluate_agents(args.path)
+    evaluate_agents(args.name, args.n)

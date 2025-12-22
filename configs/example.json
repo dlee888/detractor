@@ -1,0 +1,31 @@
+{
+  "training": {
+    "iterations": 15000,
+    "num_opponents": 8,
+    "checkpoint_interval": 50,
+    "restore_from": "",
+    "restore": false
+  },
+  "hyperparameters": {
+    "lr": 2e-5,
+    "gamma": 0.997,
+    "lambda_": 0.99,
+    "clip_param": 0.1,
+    "vf_clip_param": 10.0,
+    "entropy_coeff": 0.001,
+    "train_batch_size": 40000,
+    "minibatch_size": 128,
+    "num_epochs": 2
+  },
+  "resources": {
+    "num_env_runners": 1,
+    "num_envs_per_env_runner": 32,
+    "num_gpus_per_env_runner": 1,
+    "num_cpus_per_env_runner": 16,
+    "rollout_fragment_length": "auto"
+  },
+  "model": {
+    "fcnet_hiddens": [1024, 1024, 1024],
+    "fcnet_activation": "relu"
+  }
+}

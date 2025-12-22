@@ -16,9 +16,9 @@ from game.card import NUM_CARDS, Card, Rank, Suit
 from game.game import NUM_PLAYERS
 from game.hand import Hand
 from rl.env import TractorEnv
-from rl.util import run_inference
-from rl.train import make_policy_mapping_fn
 from rl.modules import ActionMaskingTorchRandomModule
+from rl.train import make_policy_mapping_fn
+from rl.util import run_inference
 
 RANKS = "3456789TJQKA2jJ"
 SUITS = "CDHS"

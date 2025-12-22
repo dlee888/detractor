@@ -3,7 +3,7 @@ from typing import override
 
 from game.base import BaseModel
 from game.card import TRUMP_RANKS, Card, Suit
-from game.util import get_tractors, get_pairs
+from game.util import get_pairs, get_tractors
 
 
 class ActionType(Enum):

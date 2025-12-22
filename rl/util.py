@@ -1,9 +1,116 @@
+import os
 import random
-import torch
+from typing import Any
+
 import numpy as np
+import torch
+from ray.rllib.algorithms.callbacks import DefaultCallbacks
+from ray.rllib.algorithms.ppo import PPOConfig
+from ray.rllib.core.rl_module.multi_rl_module import MultiRLModuleSpec
+from ray.rllib.core.rl_module.rl_module import RLModuleSpec
 
 from game.card import Card
 from rl.env import TractorEnv
+from rl.modules import ActionMaskingTorchRandomModule, ActionMaskingTorchRLModule
+
+
+TEAMMATE_SELF_PROB = 0.8
+
+
+def make_policy_mapping_fn(
+    opponent_pool: list[str] | None = None,
+    random_opp_rate: float = 0.5,
+    past_opp_rate: float = 0.5,
+):
+    episode_data = {}
+
+    def _map(agent_id, episode, **kwargs):
+        if id(episode) not in episode_data:
+            episode_data[id(episode)] = {}
+        data = episode_data[id(episode)]
+        if agent_id % 2 == 0:
+            if (
+                agent_id == 2
+                and opponent_pool
+                and random.random() >= TEAMMATE_SELF_PROB
+            ):
+                data[f"chosen_opponent{agent_id}"] = random.choice(opponent_pool)
+            else:
+                data[f"chosen_opponent{agent_id}"] = "shared_policy"
+            return data[f"chosen_opponent{agent_id}"]
+        if f"chosen_opponent{agent_id}" not in data:
+            roll = random.random()
+            if roll < random_opp_rate:
+                data[f"chosen_opponent{agent_id}"] = "random"
+                data[f"chosen_opponent{(agent_id + 2) % 4}"] = "random"
+            elif opponent_pool is not None and roll < random_opp_rate + past_opp_rate:
+                data[f"chosen_opponent{agent_id}"] = random.choice(opponent_pool)
+                data[f"chosen_opponent{(agent_id + 2) % 4}"] = random.choice(
+                    opponent_pool
+                )
+            else:
+                data[f"chosen_opponent{agent_id}"] = "shared_policy"
+                if not opponent_pool or random.random() < TEAMMATE_SELF_PROB:
+                    data[f"chosen_opponent{(agent_id + 2) % 4}"] = "shared_policy"
+                else:
+                    data[f"chosen_opponent{(agent_id + 2) % 4}"] = random.choice(
+                        opponent_pool
+                    )
+        return data[f"chosen_opponent{agent_id}"]
+
+    return _map
+
+
+class SelfPlayWinRateCallback(DefaultCallbacks):
+    def on_episode_end(self, *, episode, metrics_logger, **kwargs):
+        main_reward = sum(episode.agent_episodes[0].rewards)
+
+        metrics_logger.log_value(
+            f"main_vs_{episode.agent_episodes[1].module_id}", main_reward, reduce="mean"
+        )
+        metrics_logger.log_value(
+            f"main_vs_{episode.agent_episodes[1].module_id[:4]}",
+            main_reward,
+            reduce="mean",
+        )
+
+
+def build_algo(name: str, run_config: dict[str, Any]):
+    config = (
+        PPOConfig()
+        .environment(env=TractorEnv, disable_env_checking=True)
+        .callbacks(SelfPlayWinRateCallback)
+        .multi_agent(
+            policies={"shared_policy", "random"},
+            policy_mapping_fn=make_policy_mapping_fn(),
+            policy_states_are_swappable=True,
+            policies_to_train=["shared_policy"],
+        )
+        .training(**run_config["hyperparameters"])
+        .env_runners(
+            create_local_env_runner=False,
+            create_env_on_local_worker=False,
+            **run_config["resources"],
+        )
+        .rl_module(
+            rl_module_spec=MultiRLModuleSpec(
+                rl_module_specs={
+                    "shared_policy": RLModuleSpec(
+                        module_class=ActionMaskingTorchRLModule,
+                        model_config=run_config["model"],
+                    ),
+                    "random": RLModuleSpec(
+                        module_class=ActionMaskingTorchRandomModule,
+                    ),
+                }
+            )
+        )
+    )
+    algo = config.build()
+    if run_config["training"]["restore"]:
+        checkpoint_path = run_config["training"]["restore_from"] or f"checkpoints/{name}"
+        algo.restore(os.path.abspath(checkpoint_path))
+    return algo
 
 
 def run_inference(module, agent_obs) -> int:

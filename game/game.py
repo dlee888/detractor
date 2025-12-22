@@ -3,11 +3,10 @@ import random
 
 from game.action import Action, ActionType
 from game.base import BaseModel
-from game.card import TRUMP_RANKS, Card, Suit, Rank
+from game.card import TRUMP_RANKS, Card, Rank, Suit
 from game.hand import Hand
 from game.player import Player
 from game.util import rank_kitty_cards_to_discard
-
 
 KITTY_MULTIPLIERS = {ActionType.SINGLE: 2, ActionType.PAIR: 4, ActionType.TRACTOR: 8}
 

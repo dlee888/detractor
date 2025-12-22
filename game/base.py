@@ -1,6 +1,5 @@
 import pydantic
 
-
 # class BaseModel(pydantic.BaseModel):
 #     class Config:
 #         validate_default: bool = True

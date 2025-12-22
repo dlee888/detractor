@@ -1,7 +1,7 @@
 from typing import override
 
 from game.base import BaseModel
-from game.card import Card, Suit, TRUMP_RANKS
+from game.card import TRUMP_RANKS, Card, Suit
 
 
 class Player(BaseModel):

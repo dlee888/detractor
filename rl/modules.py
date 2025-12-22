@@ -1,7 +1,7 @@
-import torch
 from typing import Any, Dict, Optional, Tuple, Union
 
 import gymnasium as gym
+import torch
 from ray.rllib.algorithms.ppo.torch.ppo_torch_rl_module import PPOTorchRLModule
 from ray.rllib.core.columns import Columns
 from ray.rllib.core.rl_module.apis.value_function_api import ValueFunctionAPI
@@ -12,10 +12,9 @@ from ray.rllib.utils.framework import try_import_torch
 from ray.rllib.utils.torch_utils import FLOAT_MIN
 from ray.rllib.utils.typing import TensorType
 
-from game.card import Card, NUM_CARDS, NUM_SUITS, Rank, TRUMP_RANKS
-from game.action import Action, ActionType, ActionClass, ActionSuitType
+from game.action import Action, ActionClass, ActionSuitType, ActionType
+from game.card import NUM_CARDS, NUM_SUITS, TRUMP_RANKS, Card, Rank
 from game.game import NUM_PLAYERS
-
 
 torch, nn = try_import_torch()
 
