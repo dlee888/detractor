@@ -27,21 +27,20 @@ def checkpoint_module_spec(path: str, observation_space, action_space) -> RLModu
     )
 
 
-random_opp_rate = 0.5
-past_opp_rate = 0.5
+random_opp_rate = 0.8
+past_opp_rate = 0.2
 
 
 def main(name: str, run_config: dict[str, Any]) -> None:
     global random_opp_rate, past_opp_rate
 
-    algo = build_algo(run_config)
+    algo = build_algo(name, run_config)
 
     print("Starting training...")
     num_iterations = run_config["training"]["iterations"]
+    checkpoint_interval = run_config["training"]["checkpoint_interval"]
+    num_opps = run_config["training"]["num_opponents"]
 
-    # Open a log file once for the whole run
-    opponent_pool = []
-    MAX_POOL = 25
     try:
         log_file_path = f"episode_rewards_{name}.csv"
         with open(log_file_path, "w") as f:
@@ -56,7 +55,6 @@ def main(name: str, run_config: dict[str, Any]) -> None:
                 print(f"{'=' * 60}")
                 print(f"{time.time() - starttime:.3f}s taken")
                 stats = result.get("env_runners", {})
-                # pprint(stats)
                 episode_returns_mean = stats.get("agent_episode_returns_mean", {})
                 episode_return_mean = episode_returns_mean.get("0", "N")
                 print(f"Episode Reward Mean: {episode_return_mean}")
@@ -71,30 +69,16 @@ def main(name: str, run_config: dict[str, Any]) -> None:
                 else:
                     print(f"Failed to log reward: {type(episode_return_mean)}")
 
-                if (i + 1) % 50 == 0:
+                if (i + 1) % checkpoint_interval == 0:
                     checkpoint = algo.save(os.path.abspath(f"checkpoints/{name}"))
                     print(f"\nCheckpoint saved at: {checkpoint.checkpoint}")
                     random_opp_rate *= 0.95
                     past_opp_rate = 1 - random_opp_rate
                     print(f"New random opp rate: {random_opp_rate}")
-                    new_policy = f"self_t{i}"
-                    env = TractorEnv()
-                    checkpoint_spec = checkpoint_module_spec(
-                        checkpoint.checkpoint.path,
-                        env.get_observation_space(0),
-                        env.get_action_space(0),
-                    )
-                    opponent_pool.append(new_policy)
-                    while len(opponent_pool) > MAX_POOL:
-                        old_module = opponent_pool.pop(0)
-                        algo.remove_module(module_id=old_module)
-                    algo.add_module(
-                        module_id=new_policy,
-                        module_spec=checkpoint_spec,
-                        new_agent_to_module_mapping_fn=make_policy_mapping_fn(
-                            opponent_pool, random_opp_rate, past_opp_rate
-                        ),
-                    )
+                    curr_weights = algo.get_module("shared_policy").get_state()
+                    opp = f"opp_{((i + 1) // checkpoint_interval) % num_opps}"
+                    algo.get_module(opp).set_state(curr_weights)
+                    print(f"Loaded state into {opp}")
     except KeyboardInterrupt:
         pass
     finally:

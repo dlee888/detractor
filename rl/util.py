@@ -76,39 +76,45 @@ class SelfPlayWinRateCallback(DefaultCallbacks):
 
 
 def build_algo(name: str, run_config: dict[str, Any]):
+    random_spec = RLModuleSpec(
+        module_class=ActionMaskingTorchRandomModule,
+    )
+    base_spec = RLModuleSpec(
+        module_class=ActionMaskingTorchRLModule,
+        model_config=run_config["model"],
+    )
+    opponent_ids = [f"opp_{i}" for i in range(run_config["training"]["num_opponents"])]
     config = (
         PPOConfig()
         .environment(env=TractorEnv, disable_env_checking=True)
         .callbacks(SelfPlayWinRateCallback)
         .multi_agent(
-            policies={"shared_policy", "random"},
-            policy_mapping_fn=make_policy_mapping_fn(),
+            policies={"shared_policy", "random", *opponent_ids},
+            policy_mapping_fn=make_policy_mapping_fn(opponent_ids),
             policy_states_are_swappable=True,
             policies_to_train=["shared_policy"],
         )
         .training(**run_config["hyperparameters"])
         .env_runners(
-            create_local_env_runner=False,
+            # create_local_env_runner=False,
             create_env_on_local_worker=False,
             **run_config["resources"],
         )
         .rl_module(
             rl_module_spec=MultiRLModuleSpec(
                 rl_module_specs={
-                    "shared_policy": RLModuleSpec(
-                        module_class=ActionMaskingTorchRLModule,
-                        model_config=run_config["model"],
-                    ),
-                    "random": RLModuleSpec(
-                        module_class=ActionMaskingTorchRandomModule,
-                    ),
+                    "shared_policy": base_spec,
+                    "random": random_spec,
+                    **{oid: base_spec for oid in opponent_ids},
                 }
             )
         )
     )
     algo = config.build()
     if run_config["training"]["restore"]:
-        checkpoint_path = run_config["training"]["restore_from"] or f"checkpoints/{name}"
+        checkpoint_path = (
+            run_config["training"]["restore_from"] or f"checkpoints/{name}"
+        )
         algo.restore(os.path.abspath(checkpoint_path))
     return algo
 
