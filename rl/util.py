@@ -56,6 +56,7 @@ def make_policy_mapping_fn(
                     data[f"chosen_opponent{(agent_id + 2) % 4}"] = random.choice(
                         opponent_pool
                     )
+        # print(f"chosen_opponent{agent_id}", data[f"chosen_opponent{agent_id}"])
         return data[f"chosen_opponent{agent_id}"]
 
     return _map
@@ -75,7 +76,12 @@ class SelfPlayWinRateCallback(DefaultCallbacks):
         )
 
 
-def build_algo(name: str, run_config: dict[str, Any]):
+def build_algo(
+    name: str,
+    run_config: dict[str, Any],
+    random_opp_rate: float = 0.5,
+    past_opp_rate: float = 0.5,
+):
     random_spec = RLModuleSpec(
         module_class=ActionMaskingTorchRandomModule,
     )
@@ -83,14 +89,16 @@ def build_algo(name: str, run_config: dict[str, Any]):
         module_class=ActionMaskingTorchRLModule,
         model_config=run_config["model"],
     )
-    opponent_ids = [f"opp_{i}" for i in range(run_config["training"]["num_opponents"])]
+    opponent_ids = [f"self_{i}" for i in range(run_config["training"]["num_opponents"])]
     config = (
         PPOConfig()
         .environment(env=TractorEnv, disable_env_checking=True)
         .callbacks(SelfPlayWinRateCallback)
         .multi_agent(
             policies={"shared_policy", "random", *opponent_ids},
-            policy_mapping_fn=make_policy_mapping_fn(opponent_ids),
+            policy_mapping_fn=make_policy_mapping_fn(
+                opponent_ids, random_opp_rate, past_opp_rate
+            ),
             policy_states_are_swappable=True,
             policies_to_train=["shared_policy"],
         )

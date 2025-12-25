@@ -548,7 +548,12 @@ class ActionmMaskingHeuristicsModule(ActionMaskingTorchRLModule):
                 lead_suit = lead_action.get_suit(trump_suit)
 
             best_card: Card | None = None
-            if best_action is not None and best_action.action_type == ActionType.SINGLE:
+            if (
+                best_action is not None
+                and lead_suit is not None
+                and best_action.classify(lead_suit, trump_suit).action_type
+                == ActionType.SINGLE
+            ):
                 best_card = best_action.cards[0]
 
             if team_winning:

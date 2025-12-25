@@ -2,39 +2,33 @@ import argparse
 import json
 import os
 import time
-from pathlib import Path
 from pprint import pprint
 from typing import Any
 
-from ray.rllib.core.rl_module.rl_module import RLModuleSpec
-
-from rl.env import TractorEnv
-from rl.modules import ActionMaskingTorchRLModule
-from rl.util import build_algo, make_policy_mapping_fn
+from rl.util import build_algo
 
 
-def checkpoint_module_spec(path: str, observation_space, action_space) -> RLModuleSpec:
-    ckpt = Path(path).expanduser()
-    return RLModuleSpec(
-        module_class=ActionMaskingTorchRLModule,
-        observation_space=observation_space,
-        action_space=action_space,
-        model_config={
-            "fcnet_hiddens": [1024, 1024, 1024],
-            "fcnet_activation": "relu",
-        },
-        load_state_path=str(ckpt / "learner_group" / "rl_module_state.pkl"),
+random_opp_rate = 0.0
+past_opp_rate = 1.0
+
+
+def broadcast_weights_to_opponent(algo, opp_id, new_weights):
+    # opp_policy = algo.get_policy(opp_id)
+
+    def _set_weights_on_worker(worker, policy_id, weights):
+        worker.policy[policy_id].set_weights(weights)
+        return True
+
+    algo.learners.foreach_worker(
+        _set_weights_on_worker, policy_id=opp_id, weights=new_weights
     )
-
-
-random_opp_rate = 0.8
-past_opp_rate = 0.2
+    algo.get_module(opp_id).set_state(new_weights)  # sanity check
 
 
 def main(name: str, run_config: dict[str, Any]) -> None:
     global random_opp_rate, past_opp_rate
 
-    algo = build_algo(name, run_config)
+    algo = build_algo(name, run_config, random_opp_rate, past_opp_rate)
 
     print("Starting training...")
     num_iterations = run_config["training"]["iterations"]
@@ -72,12 +66,19 @@ def main(name: str, run_config: dict[str, Any]) -> None:
                 if (i + 1) % checkpoint_interval == 0:
                     checkpoint = algo.save(os.path.abspath(f"checkpoints/{name}"))
                     print(f"\nCheckpoint saved at: {checkpoint.checkpoint}")
-                    random_opp_rate *= 0.95
-                    past_opp_rate = 1 - random_opp_rate
-                    print(f"New random opp rate: {random_opp_rate}")
+                    # random_opp_rate *= 0.95
+                    # past_opp_rate = 1 - random_opp_rate
+                    # print(f"New random opp rate: {random_opp_rate}")
                     curr_weights = algo.get_module("shared_policy").get_state()
-                    opp = f"opp_{((i + 1) // checkpoint_interval) % num_opps}"
+                    opp_id = ((i + 1) // checkpoint_interval) % num_opps
+                    opp = f"self_{opp_id}"
                     algo.get_module(opp).set_state(curr_weights)
+
+                    def update_module_on_runner(env_runner):
+                        env_runner.module[opp].set_state(curr_weights)
+                        return True
+
+                    algo.env_runner_group.foreach_env_runner(update_module_on_runner)
                     print(f"Loaded state into {opp}")
     except KeyboardInterrupt:
         pass

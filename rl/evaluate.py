@@ -5,10 +5,11 @@ import tqdm
 import numpy as np
 
 from rl.env import TractorEnv
+from rl.modules import ActionmMaskingHeuristicsModule
 from rl.util import build_algo, get_random_action, run_inference
 
 
-def evaluate_agents(config_name: str, num_episodes: int = 25):
+def evaluate_agents(config_name: str, num_episodes: int = 25, heuristic: bool = False):
     with open(f"configs/{config_name}.json") as f:
         config = json.load(f)
 
@@ -21,43 +22,48 @@ def evaluate_agents(config_name: str, num_episodes: int = 25):
     print(f"Using policy '{policy_id}' for evaluation.")
 
     env = TractorEnv()
+    heuristic_module = ActionmMaskingHeuristicsModule(
+        observation_space=env.get_observation_space(0),
+        action_space=env.get_action_space(0),
+        model_config={},
+    )
+
     episode_rewards: list[float] = []
     wins = 0
     wins_def, num_def = 0, 0
     wins_att, num_att = 0, 0
+    score_def, score_att = [], []
 
-    for ep in tqdm.trange(num_episodes):
-        obs, infos = env.reset()
+    for _ in tqdm.trange(num_episodes):
+        obs, _ = env.reset()
         rewards_sum = {agent: 0.0 for agent in env.possible_agents}
-        terminated = {agent: False for agent in env.possible_agents}
+
+        def step_and_track_reward(actions):
+            obs, rewards, _, _, _ = env.step(actions)
+
+            for agent_id, r in rewards.items():
+                rewards_sum[agent_id] += r
+            return obs
 
         step = 0
         while not env.game.game_over():
             actions = {}
             if env.game.current_hand.next_player % 2 == 0:
                 for agent_id, agent_obs in obs.items():
-                    if not terminated[agent_id]:
-                        action = run_inference(module, agent_obs)
-                        actions[agent_id] = action
-                obs, rewards, terms, truncs, infos = env.step(actions)
-
-                for agent_id, r in rewards.items():
-                    rewards_sum[agent_id] += r
-                for agent_id in env.possible_agents:
-                    terminated[agent_id] = terms.get(agent_id, False) or truncs.get(
-                        agent_id, False
-                    )
+                    action = run_inference(module, agent_obs)
+                    actions[agent_id] = action
+                obs = step_and_track_reward(actions)
             else:
-                action = get_random_action(env)
-                for c in action:
-                    obs, _, terminated, _, _ = env.step(
-                        {env.game.current_hand.next_player: c}
-                    )
-                obs, rewards, terminated, _, _ = env.step(
-                    {env.game.current_hand.next_player: 54}
-                )
-                for agent_id, r in rewards.items():
-                    rewards_sum[agent_id] += r
+                if heuristic:
+                    for agent_id, agent_obs in obs.items():
+                        action = run_inference(heuristic_module, agent_obs)
+                        actions[agent_id] = action
+                    obs = step_and_track_reward(actions)
+                else:
+                    action = get_random_action(env)
+                    for c in action:
+                        obs = step_and_track_reward({env.game.current_hand.next_player: c})
+                    obs = step_and_track_reward({env.game.current_hand.next_player: 54})
 
             step += 1
             if step > 1000:
@@ -70,10 +76,12 @@ def evaluate_agents(config_name: str, num_episodes: int = 25):
             wins += env.game.attacker_points < 80
             wins_def += env.game.attacker_points < 80
             num_def += 1
+            score_def.append(env.game.defender_points)
         else:
             wins += env.game.attacker_points >= 80
             wins_att += env.game.attacker_points >= 80
             num_att += 1
+            score_att.append(env.game.attacker_points)
 
     print("\n" + "=" * 60)
     print("Evaluation Summary")
@@ -86,6 +94,9 @@ def evaluate_agents(config_name: str, num_episodes: int = 25):
     print(
         f"Win rate: {wr} \u00b1 {wr_std}. Win rate when defending: {wins_def / num_def}, win rate when attacking: {wins_att / num_att}"
     )
+    print(
+        f"Average score when defending: {np.mean(score_def)}, average_score when attacking: {np.mean(score_att)}"
+    )
     # Cleanup
     algo.stop()
 
@@ -94,5 +105,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", type=str, required=True)
     parser.add_argument("--n", type=int, default=1000)
+    parser.add_argument("--heuristic", action="store_true")
     args = parser.parse_args()
-    evaluate_agents(args.name, args.n)
+    evaluate_agents(args.name, args.n, args.heuristic)
