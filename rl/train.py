@@ -12,19 +12,6 @@ random_opp_rate = 0.0
 past_opp_rate = 1.0
 
 
-def broadcast_weights_to_opponent(algo, opp_id, new_weights):
-    # opp_policy = algo.get_policy(opp_id)
-
-    def _set_weights_on_worker(worker, policy_id, weights):
-        worker.policy[policy_id].set_weights(weights)
-        return True
-
-    algo.learners.foreach_worker(
-        _set_weights_on_worker, policy_id=opp_id, weights=new_weights
-    )
-    algo.get_module(opp_id).set_state(new_weights)  # sanity check
-
-
 def main(name: str, run_config: dict[str, Any]) -> None:
     global random_opp_rate, past_opp_rate
 
@@ -34,6 +21,7 @@ def main(name: str, run_config: dict[str, Any]) -> None:
     num_iterations = run_config["training"]["iterations"]
     checkpoint_interval = run_config["training"]["checkpoint_interval"]
     num_opps = run_config["training"]["num_opponents"]
+    states = {}
 
     try:
         log_file_path = f"episode_rewards_{name}.csv"
@@ -72,10 +60,12 @@ def main(name: str, run_config: dict[str, Any]) -> None:
                     curr_weights = algo.get_module("shared_policy").get_state()
                     opp_id = ((i + 1) // checkpoint_interval) % num_opps
                     opp = f"self_{opp_id}"
+                    states[opp] = curr_weights
                     algo.get_module(opp).set_state(curr_weights)
 
                     def update_module_on_runner(env_runner):
-                        env_runner.module[opp].set_state(curr_weights)
+                        for o, s in states.items():
+                            env_runner.module[o].set_state(s)
                         return True
 
                     algo.env_runner_group.foreach_env_runner(update_module_on_runner)
