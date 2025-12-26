@@ -8,8 +8,8 @@ from typing import Any
 from rl.util import build_algo
 
 
-random_opp_rate = 0.0
-past_opp_rate = 1.0
+random_opp_rate = 0.2
+past_opp_rate = 0.8
 
 
 def main(name: str, run_config: dict[str, Any]) -> None:

@@ -7,9 +7,8 @@
 #SBATCH --partition=mit_preemptable
 #SBATCH --requeue
 #SBATCH -N 1
-#SBATCH --gpus-per-node=4
+#SBATCH --gres gpu:4
 #SBATCH --cpus-per-gpu=16
-#SBATCH --mem=100GB
 #SBATCH --time 2-00:00:00
 
 source /home/dlee888/.bashrc
