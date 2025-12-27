@@ -17,11 +17,21 @@ def main(name: str, run_config: dict[str, Any]) -> None:
 
     algo = build_algo(name, run_config, random_opp_rate, past_opp_rate)
 
+    def update_module_on_runner(env_runner):
+        for o, s in states.items():
+            env_runner.module[o].set_state(s)
+        return True
+
     print("Starting training...")
     num_iterations = run_config["training"]["iterations"]
     checkpoint_interval = run_config["training"]["checkpoint_interval"]
     num_opps = run_config["training"]["num_opponents"]
+
     states = {}
+    init_weights = algo.get_module("shared_policy").get_state()
+    for i in range(num_opps):
+        states[f"self_{i}"] = init_weights
+    algo.env_runner_group.foreach_env_runner(update_module_on_runner)
 
     try:
         log_file_path = f"episode_rewards_{name}.csv"
@@ -62,12 +72,6 @@ def main(name: str, run_config: dict[str, Any]) -> None:
                     opp = f"self_{opp_id}"
                     states[opp] = curr_weights
                     algo.get_module(opp).set_state(curr_weights)
-
-                    def update_module_on_runner(env_runner):
-                        for o, s in states.items():
-                            env_runner.module[o].set_state(s)
-                        return True
-
                     algo.env_runner_group.foreach_env_runner(update_module_on_runner)
                     print(f"Loaded state into {opp}")
     except KeyboardInterrupt:
