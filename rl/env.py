@@ -303,6 +303,15 @@ class TractorEnv(MultiAgentEnv):
             action = action_dict[next_player]
             if action == NUM_CARDS:
                 action = Action(self.partial_selection)
+                if next_player != self.game.current_hand.lead_player:
+                    lead_action = self.game.current_hand.actions[
+                        self.game.current_hand.lead_player
+                    ]
+                    assert lead_action is not None
+                    lead_suit = lead_action.get_suit(self.game.trump_suit)
+                    assert lead_suit is not None
+                    if action.get_suit(self.game.trump_suit) != lead_suit:
+                        self.out_encoding[next_player, lead_suit.value] = 1
                 result = self.game.play_action(action)
                 if result is not None:
                     score, winner = result
@@ -316,15 +325,6 @@ class TractorEnv(MultiAgentEnv):
                 ] += self.partial_selection_encoding
                 self.partial_selection = []
                 self.partial_selection_encoding = np.zeros((NUM_CARDS,))
-                if next_player != self.game.current_hand.lead_player:
-                    lead_action = self.game.current_hand.actions[
-                        self.game.current_hand.lead_player
-                    ]
-                    assert lead_action is not None
-                    lead_suit = lead_action.get_suit(self.game.trump_suit)
-                    assert lead_suit is not None
-                    if action.get_suit(self.game.trump_suit) != lead_suit:
-                        self.out_encoding[next_player, lead_suit.value] = 1
             else:
                 self.partial_selection.append(Card.from_index(action))
                 self.partial_selection_encoding[action] += 1.0
