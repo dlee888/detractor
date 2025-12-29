@@ -123,7 +123,10 @@ def build_algo(
         checkpoint_path = (
             run_config["training"]["restore_from"] or f"checkpoints/{name}"
         )
-        algo.restore(os.path.abspath(checkpoint_path))
+        if os.path.exists(checkpoint_path):
+            algo.restore(os.path.abspath(checkpoint_path))
+        else:
+            print(f"WARNING: No checkpoint found at path {checkpoint_path}")
     return algo
 
 
