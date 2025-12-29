@@ -19,6 +19,7 @@ OBS_SIZE = (
     + NUM_PLAYERS
     + NUM_CARDS
     + NUM_CARDS * NUM_PLAYERS
+    + NUM_PLAYERS * NUM_SUITS
 )
 
 REWARD_SCALE = 20.0
@@ -33,6 +34,7 @@ class TractorEnv(MultiAgentEnv):
     hand_history_encodings: list[np.ndarray]
     trump_encoding: np.ndarray
     partial_selection_encoding: np.ndarray
+    out_encoding: np.ndarray
 
     def __init__(self, config: None = None) -> None:
         super().__init__()
@@ -51,6 +53,7 @@ class TractorEnv(MultiAgentEnv):
                 self.hands_encodings[i][card.get_index()] += 1.0
             self.hand_history_encodings.append(np.zeros((NUM_CARDS,)))
         self.partial_selection_encoding = np.zeros((NUM_CARDS,))
+        self.out_encoding = np.zeros((NUM_PLAYERS, NUM_SUITS))
 
     @override
     def get_observation_space(
@@ -99,7 +102,11 @@ class TractorEnv(MultiAgentEnv):
 
         # Hand history encoding
         for offset in range(NUM_PLAYERS):
-            obs.append(self.hand_history_encodings[(next_player_ind + offset) % NUM_PLAYERS])
+            obs.append(
+                self.hand_history_encodings[(next_player_ind + offset) % NUM_PLAYERS]
+            )
+
+        obs.append(self.out_encoding.flatten())
 
         return np.concat(obs)
 
@@ -274,6 +281,7 @@ class TractorEnv(MultiAgentEnv):
                 self.hands_encodings[i][card.get_index()] += 1.0
             self.hand_history_encodings.append(np.zeros((NUM_CARDS,)))
         self.partial_selection_encoding = np.zeros((NUM_CARDS,))
+        self.out_encoding = np.zeros((NUM_PLAYERS, NUM_SUITS))
         return self.get_observation(), {}
 
     @override
@@ -303,9 +311,20 @@ class TractorEnv(MultiAgentEnv):
                     rewards[(winner + 1) % NUM_PLAYERS] -= score / REWARD_SCALE
                     rewards[(winner + 3) % NUM_PLAYERS] -= score / REWARD_SCALE
                 self.hands_encodings[next_player] -= self.partial_selection_encoding
-                self.hand_history_encodings[next_player] += self.partial_selection_encoding
+                self.hand_history_encodings[
+                    next_player
+                ] += self.partial_selection_encoding
                 self.partial_selection = []
                 self.partial_selection_encoding = np.zeros((NUM_CARDS,))
+                if next_player != self.game.current_hand.lead_player:
+                    lead_action = self.game.current_hand.actions[
+                        self.game.current_hand.lead_player
+                    ]
+                    assert lead_action is not None
+                    lead_suit = lead_action.get_suit(self.game.trump_suit)
+                    assert lead_suit is not None
+                    if action.get_suit(self.game.trump_suit) != lead_suit:
+                        self.out_encoding[next_player, lead_suit.value] = 1
             else:
                 self.partial_selection.append(Card.from_index(action))
                 self.partial_selection_encoding[action] += 1.0
