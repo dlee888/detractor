@@ -72,8 +72,8 @@ def main(name: str, run_config: dict[str, Any]) -> None:
                     opp = f"self_{opp_id}"
                     states[opp] = curr_weights
                     algo.get_module(opp).set_state(curr_weights)
-                    algo.env_runner_group.foreach_env_runner(update_module_on_runner)
                     print(f"Loaded state into {opp}")
+                algo.env_runner_group.foreach_env_runner(update_module_on_runner)
     except KeyboardInterrupt:
         pass
     finally:
