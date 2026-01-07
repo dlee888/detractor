@@ -108,6 +108,9 @@ def build_algo(
             create_env_on_local_worker=False,
             **run_config["resources"],
         )
+        .learners(
+            **run_config["learner_resources"],
+        )
         .rl_module(
             rl_module_spec=MultiRLModuleSpec(
                 rl_module_specs={
