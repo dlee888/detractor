@@ -1,23 +1,13 @@
 import argparse
 import json
 import os
-import random
 import traceback
-
-from ray.rllib.algorithms.ppo import PPOConfig
-from ray.rllib.core.rl_module.multi_rl_module import MultiRLModuleSpec
-from ray.rllib.core.rl_module.rl_module import RLModuleSpec
-from ray.rllib.examples.rl_modules.classes.action_masking_rlm import (
-    ActionMaskingTorchRLModule,
-)
 
 from game.action import Action
 from game.card import NUM_CARDS, Card, Rank, Suit
 from game.game import NUM_PLAYERS
 from game.hand import Hand
 from rl.env import TractorEnv
-from rl.modules import ActionMaskingTorchRandomModule
-from rl.train import make_policy_mapping_fn
 from rl.util import build_algo, run_inference
 
 RANKS = "3456789TJQKA2jJ"
@@ -78,7 +68,6 @@ def run_user_study(checkpoint_path: str, run_name: str):
     with open(f"configs/{args.name}.json") as f:
         config = json.load(f)
     algo = build_algo(run_name, config)
-    algo.restore(checkpoint_path)
 
     policy_id = "shared_policy"
     module = algo.get_module(policy_id)
