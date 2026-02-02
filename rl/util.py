@@ -134,6 +134,7 @@ def build_algo(
 
 
 def run_inference(module, agent_obs) -> int:
+    # device = torch.device("cpu")
     device = torch.device("cuda")
     module.to(device)
     obs_batch = {
