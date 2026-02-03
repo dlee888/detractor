@@ -253,7 +253,7 @@ class ActionMaskingTorchRandomModule(ActionMaskingTorchRLModule):
         return {"action_dist_inputs": logits, "vf_preds": vf_preds}
 
 
-class ActionmMaskingHeuristicsModule(ActionMaskingTorchRLModule):
+class ActionMaskingHeuristicsModule(ActionMaskingTorchRLModule):
     """Heuristic, rule-based action selection module.
 
     High-level behavior (single-step view):

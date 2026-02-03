@@ -5,7 +5,7 @@ import tqdm
 import numpy as np
 
 from rl.env import TractorEnv
-from rl.modules import ActionmMaskingHeuristicsModule
+from rl.modules import ActionMaskingHeuristicsModule
 from rl.util import build_algo, get_random_action, run_inference
 
 
@@ -22,7 +22,7 @@ def evaluate_agents(config_name: str, num_episodes: int = 25, heuristic: bool = 
     print(f"Using policy '{policy_id}' for evaluation.")
 
     env = TractorEnv()
-    heuristic_module = ActionmMaskingHeuristicsModule(
+    heuristic_module = ActionMaskingHeuristicsModule(
         observation_space=env.get_observation_space(0),
         action_space=env.get_action_space(0),
         model_config={},

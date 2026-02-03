@@ -11,10 +11,14 @@ from ray.rllib.core.rl_module.rl_module import RLModuleSpec
 
 from game.card import Card
 from rl.env import TractorEnv
-from rl.modules import ActionMaskingTorchRandomModule, ActionMaskingTorchRLModule
+from rl.modules import (
+    ActionMaskingTorchRandomModule,
+    ActionMaskingTorchRLModule,
+    ActionMaskingHeuristicsModule,
+)
 
 
-TEAMMATE_SELF_PROB = 0.8
+TEAMMATE_SELF_PROB = 0.9
 
 
 def make_policy_mapping_fn(
@@ -41,8 +45,8 @@ def make_policy_mapping_fn(
         if f"chosen_opponent{agent_id}" not in data:
             roll = random.random()
             if roll < random_opp_rate:
-                data[f"chosen_opponent{agent_id}"] = "random"
-                data[f"chosen_opponent{(agent_id + 2) % 4}"] = "random"
+                data[f"chosen_opponent{agent_id}"] = "heuristic"
+                data[f"chosen_opponent{(agent_id + 2) % 4}"] = "heuristic"
             elif opponent_pool is not None and roll < random_opp_rate + past_opp_rate:
                 data[f"chosen_opponent{agent_id}"] = random.choice(opponent_pool)
                 data[f"chosen_opponent{(agent_id + 2) % 4}"] = random.choice(
@@ -85,6 +89,7 @@ def build_algo(
     random_spec = RLModuleSpec(
         module_class=ActionMaskingTorchRandomModule,
     )
+    heuristic_spec = RLModuleSpec(module_class=ActionMaskingHeuristicsModule)
     base_spec = RLModuleSpec(
         module_class=ActionMaskingTorchRLModule,
         model_config=run_config["model"],
@@ -116,6 +121,7 @@ def build_algo(
                 rl_module_specs={
                     "shared_policy": base_spec,
                     "random": random_spec,
+                    "heuristic": heuristic_spec,
                     **{oid: base_spec for oid in opponent_ids},
                 }
             )
