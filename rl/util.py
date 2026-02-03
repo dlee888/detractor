@@ -100,7 +100,7 @@ def build_algo(
         .environment(env=TractorEnv, disable_env_checking=True)
         .callbacks(SelfPlayWinRateCallback)
         .multi_agent(
-            policies={"shared_policy", "random", *opponent_ids},
+            policies={"shared_policy", "random", "heuristic", *opponent_ids},
             policy_mapping_fn=make_policy_mapping_fn(
                 opponent_ids, random_opp_rate, past_opp_rate
             ),
