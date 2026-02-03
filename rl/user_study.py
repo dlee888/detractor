@@ -74,6 +74,8 @@ def run_user_study(checkpoint_path: str, run_name: str):
 
     print(f"Using policy '{policy_id}' for evaluation.")
 
+    if os.path.exists(f"user_studies/{run_name}"):
+        os.system(f"rm -r user_studies/{run_name}")
     os.makedirs(f"user_studies/{run_name}")
 
     with open(f"user_studies/{run_name}/events.log", "a") as f:
