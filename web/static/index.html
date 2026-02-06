@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeTractor - Tractor Game</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Lobby Screen -->
+        <div id="lobby" class="screen active">
+            <h1>DeTractor</h1>
+            <h2>Tractor Card Game</h2>
+
+            <div class="mode-tabs">
+                <button class="tab active" data-mode="virtual">Play Game</button>
+                <button class="tab" data-mode="sandbox">Sandbox</button>
+            </div>
+
+            <!-- Virtual Game Config -->
+            <div id="virtual-mode" class="config-section">
+                <h3>Player Setup</h3>
+                <p class="team-info">Teams: 0 & 2 vs 1 & 3</p>
+
+                <div class="player-configs">
+                    <div class="player-config">
+                        <span class="player-num">0</span>
+                        <select id="player0">
+                            <option value="human" selected>Human</option>
+                            <option value="heuristic">Bot</option>
+                            <option value="ppo">PPO</option>
+                            <option value="random">Random</option>
+                        </select>
+                    </div>
+                    <div class="player-config">
+                        <span class="player-num">1</span>
+                        <select id="player1">
+                            <option value="human">Human</option>
+                            <option value="heuristic" selected>Bot</option>
+                            <option value="ppo">PPO</option>
+                            <option value="random">Random</option>
+                        </select>
+                    </div>
+                    <div class="player-config">
+                        <span class="player-num">2</span>
+                        <select id="player2">
+                            <option value="human">Human</option>
+                            <option value="heuristic" selected>Bot</option>
+                            <option value="ppo">PPO</option>
+                            <option value="random">Random</option>
+                        </select>
+                    </div>
+                    <div class="player-config">
+                        <span class="player-num">3</span>
+                        <select id="player3">
+                            <option value="human">Human</option>
+                            <option value="heuristic" selected>Bot</option>
+                            <option value="ppo">PPO</option>
+                            <option value="random">Random</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="start-btn" class="btn primary">Start Game</button>
+            </div>
+
+            <!-- Sandbox Mode Config -->
+            <div id="sandbox-mode" class="config-section hidden">
+                <h3>Sandbox Mode</h3>
+                <p>Set hands and record plays for any player. Get suggestions for seats with known hands.</p>
+
+                <div class="trump-selector">
+                    <label>Trump:</label>
+                    <select id="trump-select">
+                        <option value="SPADES">Spades &#9824;</option>
+                        <option value="HEARTS">Hearts &#9829;</option>
+                        <option value="DIAMONDS">Diamonds &#9830;</option>
+                        <option value="CLUBS">Clubs &#9827;</option>
+                    </select>
+                </div>
+
+                <div class="trump-selector">
+                    <label>Lead:</label>
+                    <select id="lead-select">
+                        <option value="0">Player 0</option>
+                        <option value="1">Player 1</option>
+                        <option value="2">Player 2</option>
+                        <option value="3">Player 3</option>
+                    </select>
+                </div>
+
+                <div class="trump-selector">
+                    <label>My Seats:</label>
+                    <label class="toggle-label"><input type="checkbox" class="my-seat-cb" value="0" checked> P0</label>
+                    <label class="toggle-label"><input type="checkbox" class="my-seat-cb" value="1"> P1</label>
+                    <label class="toggle-label"><input type="checkbox" class="my-seat-cb" value="2"> P2</label>
+                    <label class="toggle-label"><input type="checkbox" class="my-seat-cb" value="3"> P3</label>
+                </div>
+
+                <button id="sandbox-start-btn" class="btn primary">Start</button>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game" class="screen">
+            <div class="game-header">
+                <div class="game-info">
+                    <span>Trump: <strong id="trump-suit">-</strong></span>
+                    <span class="scores">
+                        <span class="def">Def: <span id="defender-points">0</span></span>
+                        <span class="atk">Atk: <span id="attacker-points">0</span></span>
+                    </span>
+                </div>
+                <div class="turn-indicator" id="turn-indicator">
+                    <span id="current-turn">Waiting...</span>
+                </div>
+                <div class="game-controls">
+                    <button id="undo-btn" class="btn small">Undo</button>
+                    <select id="hint-bot-select" class="btn small" style="padding:4px 6px;font-size:0.8rem;background:var(--bg);color:var(--text);border:1px solid #444;border-radius:4px;">
+                        <option value="heuristic">Heuristic</option>
+                        <option value="ppo">PPO</option>
+                        <option value="random">Random</option>
+                    </select>
+                    <select id="checkpoint-select" class="btn small hidden" style="padding:4px 6px;font-size:0.8rem;background:var(--bg);color:var(--text);border:1px solid #444;border-radius:4px;">
+                    </select>
+                    <button id="suggest-btn" class="btn small">Hint</button>
+                    <label class="toggle-label"><input type="checkbox" id="show-all-toggle" checked> Show All</label>
+                    <button id="quit-btn" class="btn small danger">Quit</button>
+                </div>
+            </div>
+
+            <div class="game-layout">
+                <!-- Left sidebar: History + Bot Thinking -->
+                <div class="sidebar" id="history-sidebar">
+                    <h4>History</h4>
+                    <div class="history-content" id="history-content"></div>
+                    <h4>Bot Thinking</h4>
+                    <div class="thinking-content" id="thinking-content">
+                        <span style="color:var(--muted)">Waiting for bot...</span>
+                    </div>
+                </div>
+
+                <!-- Main game area -->
+                <div class="game-main">
+                    <div class="game-table">
+                        <!-- Player 2 (Top) -->
+                        <div class="player-area top" id="player-2-area">
+                            <div class="player-label">P2</div>
+                            <div class="player-hand" id="player-2-hand"></div>
+                        </div>
+
+                        <!-- Player 1 (Left) -->
+                        <div class="player-area left" id="player-1-area">
+                            <div class="player-label">P1</div>
+                            <div class="player-hand" id="player-1-hand"></div>
+                        </div>
+
+                        <!-- Center - Current Trick -->
+                        <div class="trick-area">
+                            <div class="trick-center">
+                                <div class="trick-slot" data-player="2"></div>
+                                <div class="trick-row">
+                                    <div class="trick-slot" data-player="1"></div>
+                                    <div class="trick-slot" data-player="3"></div>
+                                </div>
+                                <div class="trick-slot" data-player="0"></div>
+                            </div>
+                        </div>
+
+                        <!-- Player 3 (Right) -->
+                        <div class="player-area right" id="player-3-area">
+                            <div class="player-label">P3</div>
+                            <div class="player-hand" id="player-3-hand"></div>
+                        </div>
+
+                        <!-- Player 0 (Bottom) -->
+                        <div class="player-area bottom" id="player-0-area">
+                            <div class="player-label">P0 (You)</div>
+                            <div class="player-hand" id="player-0-hand"></div>
+                        </div>
+                    </div>
+                    <!-- Play controls - floats at bottom center -->
+                    <div class="play-controls" id="play-controls">
+                        <button id="commit-btn" class="btn primary" disabled>Play</button>
+                        <button id="clear-btn" class="btn small">Clear</button>
+                    </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card Picker - full card grid -->
+            <div class="card-picker-overlay hidden" id="card-picker">
+                <div class="card-picker-content">
+                    <h3 id="picker-title">Select cards</h3>
+                    <div class="card-grid" id="card-grid"></div>
+                    <button class="btn primary" id="picker-done">Done</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over" class="screen">
+            <h2>Game Over</h2>
+            <div class="result" id="game-result"></div>
+            <div class="final-scores">
+                <p>Defenders: <span id="final-defender">0</span></p>
+                <p>Attackers: <span id="final-attacker">0</span></p>
+            </div>
+            <button id="play-again-btn" class="btn primary">Play Again</button>
+        </div>
+
+        <!-- Suggestion Modal -->
+        <div id="suggestion-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Suggestion</h3>
+                <div class="suggestion-content" id="suggestion-content"></div>
+                <button class="btn secondary modal-close">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=2"></script>
+</body>
+</html>

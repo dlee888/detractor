@@ -35,6 +35,7 @@ class TractorGame(BaseModel):
         self.current_hand = Hand(NUM_PLAYERS, host)
         self.attacker_points = 0
         self.defender_points = 0
+        self.sandbox = False
         for player in range(NUM_PLAYERS):
             for card in hands[player]:
                 self.players[player].add_card(card, trump_suit)
@@ -99,8 +100,9 @@ class TractorGame(BaseModel):
             self.current_hand = Hand(NUM_PLAYERS, winner)
 
             # Sanity check
-            for player in self.players:
-                assert len(player.hand) == len(self.players[0].hand)
+            if not self.sandbox:
+                for player in self.players:
+                    assert len(player.hand) == len(self.players[0].hand)
 
             if self.game_over():
                 score += (
@@ -116,6 +118,8 @@ class TractorGame(BaseModel):
             return score, winner
 
     def game_over(self) -> bool:
+        if self.sandbox:
+            return False
         for player in self.players:
             if len(player.hand) > 0:
                 return False
