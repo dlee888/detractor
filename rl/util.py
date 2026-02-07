@@ -3,6 +3,7 @@ import random
 from typing import Any
 
 import numpy as np
+from ray.rllib.callbacks.callbacks import RLlibCallback
 import torch
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.algorithms.ppo import PPOConfig
@@ -19,6 +20,26 @@ from rl.modules import (
 
 
 TEAMMATE_SELF_PROB = 0.9
+
+
+class CheckpointFix(RLlibCallback):
+    def __init__(self, **kwargs):
+        super().__init__()
+
+    def on_checkpoint_loaded(
+        self,
+        *,
+        algorithm: Algorithm,
+        **kwargs,
+    ) -> None:
+        def betas_tensor_to_float(learner):
+            param_grp = next(iter(learner._optimizer_parameters.keys())).param_groups[0]
+            if not param_grp["capturable"] and isinstance(
+                param_grp["betas"][0], Tensor
+            ):
+                param_grp["betas"] = tuple(beta.item() for beta in param_grp["betas"])
+
+        algorithm.learner_group.foreach_learner(betas_tensor_to_float)
 
 
 def make_policy_mapping_fn(
@@ -98,7 +119,7 @@ def build_algo(
     config = (
         PPOConfig()
         .environment(env=TractorEnv, disable_env_checking=True)
-        .callbacks(SelfPlayWinRateCallback)
+        .callbacks([SelfPlayWinRateCallback, CheckpointFix])
         .multi_agent(
             policies={"shared_policy", "random", "heuristic", *opponent_ids},
             policy_mapping_fn=make_policy_mapping_fn(
